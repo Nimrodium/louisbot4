@@ -1,0 +1,6 @@
+lb4_config.json
+venv/*
+db/*
+.*
+__pycache_/*_
+!.gitignore
