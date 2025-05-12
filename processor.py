@@ -50,9 +50,13 @@ class StatBuilder:
     def __init__(self,cfg:Config):
         self.cfg = cfg
         self.colors_file = os.path.join(self.cfg.database_directory,'colors.json')
-        with open(self.colors_file,'r') as f:
+        if os.path.exists(self.colors_file):
+            with open(self.colors_file,'r') as f:
             self.user_colors : dict = json.load(f)
-
+        else:
+            with open(self.colors_file,'x') as f:
+                f.write("{}")
+                self.user_colors : dict = {}
 
     def collect_data(self,server_id:int,files:list[str]) -> list[MemberData]:
         # members : list[MemberStat] = []
