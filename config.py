@@ -31,7 +31,7 @@ class Config:
                 os.makedirs(self.database_data,exist_ok=True)
         else:
             interactive_setup()
-            self.__init__()            
+            self.__init__()
 def checked_int_input(prompt:str) -> int:
     while True:
         value = input(prompt)
@@ -40,20 +40,16 @@ def checked_int_input(prompt:str) -> int:
         else:
             return int(value)
 
-def interactive_setup() -> dict:
+def interactive_setup():
     cfg = {}
-    # keys = [cfg.TOKEN,cfg.KEY_BATCH_SIZE,cfg.KEY_DUMP_INTERVAL_MINUTES,cls.KEY_DB_ROOT,cfg.KEY_PREFIX] # server names isnt needed
-    # for key in keys:
-    #     value = input(f"{key}: ")
-    #     if value.isdigit()
-    # token
-   cfg[Config.KEY_TOKEN]: str = input(f"{Config.KEY_TOKEN}: ").strip()
-   cfg[Config.KEY_BATCH_SIZE]: int = checked_int_input(f"{Config.BATCH_SIZE}: ")
-   cfg[Config.KEY_DUMP_INTERVAL_MINUTES]: int = checked_int_input(f"{Config.DUMP_INTERVAL_MINUTES}")
-   cfg[Config.KEY_DB_ROOT]: str = input(f"{Config.KEY_DB_ROOT}: ")
-   cfg[Config.KEY_PREFIX]: str = input(f"{Config.KEY_PREFIX}")
-   cfg[Config.KEY_SERVER_NAMES]: dict = {}
-   jsonned = json.dumps(cfg)
-   with open(CONFIG,'x') as f:
-       f.write(jsonned)  
-   print("config generated")
+
+    cfg[Config.KEY_TOKEN] = input(f"{Config.KEY_TOKEN}: ").strip()
+    cfg[Config.KEY_BATCH_SIZE] = checked_int_input(f"{Config.KEY_BATCH_SIZE}: ")
+    cfg[Config.KEY_DUMP_INTERVAL_MINUTES] = checked_int_input(f"{Config.KEY_DUMP_INTERVAL_MINUTES}")
+    cfg[Config.KEY_DB_ROOT] = input(f"{Config.KEY_DB_ROOT}: ")
+    cfg[Config.KEY_PREFIX]= input(f"{Config.KEY_PREFIX}")
+    cfg[Config.KEY_SERVER_NAMES] = {}
+    jsonned = json.dumps(cfg)
+    with open(CONFIG,'x') as f:
+        f.write(jsonned)
+    print("config generated")
