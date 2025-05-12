@@ -52,7 +52,7 @@ class StatBuilder:
         self.colors_file = os.path.join(self.cfg.database_directory,'colors.json')
         if os.path.exists(self.colors_file):
             with open(self.colors_file,'r') as f:
-            self.user_colors : dict = json.load(f)
+                self.user_colors : dict = json.load(f)
         else:
             with open(self.colors_file,'x') as f:
                 f.write("{}")
