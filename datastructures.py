@@ -79,7 +79,12 @@ class MemberData:
     def total_messages(self) -> int:
         return sum(self.counts)
     # # returns 0 if key missing
-    # def total_reactions_of(self,reaction:) -> int:
+    def total_reactions_of(self,reaction:str) -> int:
+        print(self.emojis)
+        if reaction in self.emojis.keys():
+            return sum(self.emojis[reaction])
+        else:
+            return 0
 
 class Server(dict):
     KEY_MEMBERS="members" # : dict

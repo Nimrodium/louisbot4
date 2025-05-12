@@ -23,6 +23,12 @@ def get_file_name(stamp:datetime.datetime) -> str:
     return make_file_name(date.year,date.month,week_of_month(stamp))
     return f"{date.year}y-{date.month}m-{week_of_month(stamp)}w.json"
 
+async def send_message_maybe_attachment(channel,msg:str,attachment:str) -> None: # channel is MessageableChannel python is being stupid though and i cant import it
+    if os.path.exists(attachment):
+        await channel.send(msg,file=nextcord.File(attachment))
+    else:
+        await channel.send(msg)
+    return
 
 class Scraper(commands.Bot):
     KEY_DATA="data"
@@ -118,6 +124,7 @@ class Scraper(commands.Bot):
             return self.data[id]
         else:
             if str(id) in self.cfg.server_names.keys():
+                print(self.cfg.server_names)
                 std_name = self.cfg.server_names[str(id)]
             else:
                 std_name = "unknown"
@@ -171,23 +178,25 @@ class Scraper(commands.Bot):
             print(f"message by {message.author.name} had no associated server: `{message.content}`")
 
     async def on_message(self,message:Message):
-        if message.author.bot:
-            return
-        if self.counter == self.batch_size:
-            # print(f"processing batch:  {self.batch}")
-            # self.counter = 0
-            await self.process_batch()
-            # self.batch = {}
-            self.dump_to_file()
+        if not message.author.bot:
+            if self.counter == self.batch_size:
+                # print(f"processing batch:  {self.batch}")
+                # self.counter = 0
+                await self.process_batch()
+                # self.batch = {}
+                self.dump_to_file()
 
+            else:
+                # print("ignoring message")
+                self.log_pointer(message)
+                self.counter+=1
+                print(f"bc:{self.counter}")
+
+            if message.content.startswith(self.cfg.prefix):
+                await self.handle_cmd(message)
         else:
-           # print("ignoring message")
-           self.log_pointer(message)
-           self.counter+=1
-           print(f"bc:{self.counter}")
+            print("bot user")
 
-        if message.content.startswith(self.cfg.prefix):
-            await self.handle_cmd(message)
 
     async def handle_cmd(self,message:Message):
         cmd = message.content.removeprefix(self.cfg.prefix).strip().split()
@@ -210,21 +219,68 @@ class Scraper(commands.Bot):
             case 'status':
                 await message.channel.send(f"filling batch {self.counter}/{self.batch_size} messages\nworking file: `{self.get_save_file()}`")
             case 'pie':
-                if len(cmd)>1:
-                    if cmd[1].isdigit():
-                        weeks = int(cmd[1])
-                    else:
-                        await message.channel.send(f"{self.cfg.prefix}pie >>{cmd[1]}<< not digit")
-                        return
-                else:
-                    weeks = 1
-
-
                 if not message.guild:
                     await message.channel.send("this place is not associated with a server")
                     return
-                msg,attachment = self.statistics.pie_chart_stat(message.guild.id,weeks)
-                await message.channel.send(msg.replace('_', r'\_'),file=nextcord.File(attachment))
+                #pie <m|e:str> </e/:name:str> <range:int=1>
+
+                if not len(cmd)>1:
+                    mode = 'm'
+                    weeks = 1
+                    msg,attachment = self.statistics.message_pie(message.guild.id,weeks)
+                    await send_message_maybe_attachment(message.channel,msg,attachment)
+                else:
+                    # if cmd[1] not in ('m','e'):
+                        # await message.channel.send(f"invalid pie mode `{cmd[1]}`")
+                        # return
+                    mode = cmd[1]
+                    match mode:
+                        case 'm':
+                            if not len(cmd)>2:
+                                weeks = 1
+                            else:
+                                if not cmd[2].isdigit():
+                                    await message.channel.send(f"{self.cfg.prefix}`pie >>{cmd[2]}<<` not digit")
+                                    return
+                                weeks = int(cmd[2])
+
+                            msg,attachment = self.statistics.message_pie(message.guild.id,weeks)
+                            await send_message_maybe_attachment(message.channel,msg,attachment)
+                        case 'e':
+                            if not len(cmd)>2:
+                                await message.channel.send(f"{self.cfg.prefix}`pie e >>_<<` missing emoji")
+                                return
+                            else:
+                                emoji = cmd[2].removeprefix('<:').removesuffix('>').rsplit(':',1)[0] # cleans <:emojiname:0123456789> to emojiname
+                            if not len(cmd)>3:
+                                weeks = 1
+                            else:
+                                if not cmd[3].isdigit():
+                                    await message.channel.send(f"{self.cfg.prefix}`pie >>{cmd[3]}<<` not digit")
+                                    return
+                                weeks = int(cmd[3])
+                            msg,attachment = self.statistics.emoji_pie(message.guild.id,weeks,emoji)
+                            await send_message_maybe_attachment(message.channel,msg,attachment)
+
+                        case _:
+                            await message.channel.send(f"invalid pie mode `{cmd[1]}`")
+                            return
+
+            #     if len(cmd)>1:
+            #         if cmd[1].isdigit():
+            #             weeks = int(cmd[1])
+            #         else:
+            #             await message.channel.send(f"{self.cfg.prefix}pie >>{cmd[1]}<< not digit")
+            #             return
+            #     else:
+            #         weeks = 1
+
+
+            #     if not message.guild:
+            #         await message.channel.send("this place is not associated with a server")
+            #         return
+            #     msg,attachment = self.statistics.message_pie(message.guild.id,weeks)
+            #     await message.channel.send(msg.replace('_', r'\_'),file=nextcord.File(attachment))
 
 
             case 'getcolor':
@@ -298,7 +354,7 @@ signal.signal(signal.SIGTERM,lambda _,__: scraper.cleanup())
 # timer_dump_thread.run()
 
 try:
-    scraper.run(cfg.token)
+    scraper.run(cfg.token,reconnect=True)
 except KeyboardInterrupt:
     scraper.cleanup()
     exit()

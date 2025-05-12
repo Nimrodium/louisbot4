@@ -1,4 +1,5 @@
-import os,json
+
+import os,json,re
 from numpy import random
 from config import Config
 import datetime
@@ -77,30 +78,28 @@ class StatBuilder:
     # def process(self,cmd:list[str]) -> tuple[str,str]: # (msg,file_path)
     #     pass
 
-    def pie_chart_stat(self,server_id:int,past_n_weeks:int) -> tuple[str,str]:
+
+    def get_colors(self,sorted_data:list[MemberData]) -> list[str]:
+        return [self.user_colors[str(m.id)] if str(m.id) in self.user_colors else f'#{hex(random.randint(0x333333,0xdddddd)).removeprefix('0x')}' for m in sorted_data]
+
+    def culmalative_prelude(self,server_id:int,past_n_weeks:int) -> list[MemberData]:
         files = files_for_range(self.cfg.database_data, past_n_weeks)
-        data = self.collect_data(server_id,files)
-        readout = f"total messages from past {past_n_weeks} weeks:\n"
-        # making multiple sum calls but eh... its python we arent aiming for efficieny here -- NOT ANYMORE
-        sorted_data =  sorted(data,key=lambda m: m.total_messages(),reverse=True)
-        all_messages = sum(m.total_messages() for m in sorted_data)
+        return self.collect_data(server_id,files)
 
-
-        labels = [m.name for m in sorted_data]
-        values = [m.total_messages() for m in sorted_data]
-        percents = [v/all_messages*100 for v in values]
-
-        # DEFAULT_COLOR = 0xFF00FF
+    def generic_pie_chart(self,readout:str,labels:list[str],values:list[int],colors:list[str],suffix:str) -> tuple[str,str]:
+        all = sum(values)
+        print("sum of all values: ",all)
+        percents = [v/all*100 for v in values]
+        CUTOFF_PERCENT : float = 2.0
         users_to_display = 0
         for user_percent in percents:
-            if user_percent >= 2.0:
+            if user_percent >= CUTOFF_PERCENT:
                 users_to_display+=1
             else:
                 break
-        print(f"users displayed {users_to_display}")
-        colors : list[str] = [self.user_colors[str(m.id)] if str(m.id) in self.user_colors else f'#{hex(random.randint(0x333333,0xdddddd)).removeprefix('0x')}' for m in sorted_data]
-        for n in range(len(sorted_data)): # so no more redundant calls for total messages which could get expensive on albeit extremely large datasets
-            readout += f"\t{labels[n]}: {values[n]}msgs\n"
+
+        for n in range(users_to_display): # so no more redundant calls for total messages which could get expensive on albeit extremely large datasets
+            readout += f"\t{labels[n]}: {values[n]}{suffix}\n"
         readout+='use `!setcolor #<hexcolor>` to set a custom color for your pie slice'
         figure,axes = plt.subplots()
         axes.pie(
@@ -113,23 +112,47 @@ class StatBuilder:
             labeldistance = 1.1,
             textprops={'size':'smaller'},
             autopct='%1.1f%%' # no clue what this is
+
         )
         path = os.path.join(os.environ['TEMP'] if os.name == 'nt' else '/tmp','louisbot4_pieplot.png')
         figure.savefig(path)
         print(f"{readout}\nplot saved at `{path}`")
         return (readout,path)
 
+    def emoji_pie(self,server_id:int,past_n_weeks:int,emoji:str) -> tuple[str,str]:
+        print(f'emoji key : {emoji}')
+        sorted_data = sorted(self.culmalative_prelude(server_id,past_n_weeks),key=lambda m: m.total_reactions_of(emoji),reverse=True)
+        readout = f"total {emoji} reactions from past {past_n_weeks} weeks\n"
+        labels = [m.name for m in sorted_data]
+        values = [m.total_reactions_of(emoji) for m in sorted_data]
+        return self.generic_pie_chart(readout,labels,values,self.get_colors(sorted_data),f"`{emoji}s`")
+
+
+
+    def message_pie(self,server_id:int,past_n_weeks:int) -> tuple[str,str]:
+        sorted_data = sorted(self.culmalative_prelude(server_id,past_n_weeks),key=lambda m: m.total_messages(),reverse=True)
+        all_messages = sum(m.total_messages() for m in sorted_data)
+        if all_messages <= 0:
+            return (f"no data available for past {past_n_weeks} weeks","")
+
+        readout = f"total messages from past {past_n_weeks} weeks:\n"
+        labels = [m.name for m in sorted_data]
+        values = [m.total_messages() for m in sorted_data]
+        return self.generic_pie_chart(readout,labels,values,self.get_colors(sorted_data),'msgs')
+
+
     def message_stats(self,range:int,server:int) -> tuple[str,str]: # (message,attachment path)
         return (f"this is a placeholder for stats command with range {range} weeks and serverid {server}","./db/sheepy.gif")
 
     def set_user_color(self,id:int,color:str) -> bool:
-        try:
-            n = int(color.removeprefix('#'),16) # check if valid
-        except:
+
+        is_valid = re.search(r'^#(?:[0-9a-fA-F]{3}){1,2}$', color)
+        if is_valid:
+            self.user_colors.update({str(id):color})
+            self.flush_colors()
+            return True
+        else:
             return False
-        self.user_colors.update({str(id):color})
-        self.flush_colors()
-        return True
 
     def get_user_color(self,id) -> str|None:
         self.user_colors.get(str(id))
