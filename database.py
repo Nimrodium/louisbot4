@@ -90,12 +90,19 @@ class User:
             days[int(day_n)] = day.to_dict()
         return {self.ID:self.id,self.NAME:self.name,self.DAYS:days}
 
-    def get_day(self,year:int,days_since_epoch:int) -> Day:
-        day = self.days.get(days_since_epoch)
-        if day:
-           return day
+    # def get_day(self,year:int,days_since_epoch:int) -> Day:
+    #     day = self.days.get(days_since_epoch)
+    #     if day:
+    #        return day
+    #     else:
+    #         return Day(epoch_to_unix(days_since_epoch).timestamp())
+
+    def get_day(self,requested_day:int) -> Day:
+        day = self.days.get(requested_day)
+        if day == None:
+            return Day(epoch_to_unix(requested_day).timestamp())
         else:
-            return Day(epoch_to_unix(days_since_epoch).timestamp())
+            return day
 
     def update_message_count_at(self,hr:int,msgs:int):
         day_key = datetime_to_epoch_day(datetime.now())

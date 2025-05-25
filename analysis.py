@@ -1,6 +1,9 @@
 from typing import Callable
 import nextcord
+import string,itertools
+from nextcord.ext import commands
 from nextcord.guild import Guild
+from nextcord.member import Member
 from nextcord.message import Message
 import database as db
 from config import Config
@@ -75,29 +78,10 @@ class Analyzer:
                 year -= 1
         return list(users.values())
 
-
-    # def generate_generic_pie_chart(self):
-
-    async def route_range(self,message:Message,cmd:list[str],fn:Callable):
-        assert isinstance(message.guild,Guild)
-        print(cmd)
-        match cmd[0]:
-            case "past":
-                print(cmd[0])
-                match cmd[2]:
-                    case "days"|"day"|"d":
-                        print(cmd[2])
-                        if cmd[1].isdigit():
-                            print(cmd[1])
-                            start = db.datetime_to_epoch_day(datetime.datetime.now() - datetime.timedelta(days=int(cmd[1])))
-                            end = db.datetime_to_epoch_day(datetime.datetime.now())
-                            msg,attachment = fn(self.cfg.get_server_alias(message.guild.id),start,end)
-                            await message.channel.send(msg,file=nextcord.File(attachment))
-                        else:
-                            await message.channel.send("not a number")
     def get_start_end(self,cmd:list[str]) -> tuple[int,int]:
+        print(f"time select : {cmd}")
         match cmd[0]:
-            case "past"|"last":
+            case "past"|"last"|'p'|'l':
                 match cmd[2]:
                     case "day"|"days"|"d":
                         if cmd[1].isdigit():
@@ -106,12 +90,12 @@ class Analyzer:
                             return (start,end)
                         else:
                             raise Exception("Value is not Digit")
-            case "since":
+            case "since"|'s':
                 human_readable = " ".join(cmd[1:])
                 start =  db.datetime_to_epoch_day(parser.parse(human_readable))
                 end = db.datetime_to_epoch_day(datetime.datetime.now())
                 return (start,end)
-            case "from":
+            case "from"|'f':
                 start_human_readable_list = []
                 for s in cmd[1:]:
                     if s == "to":
@@ -126,39 +110,199 @@ class Analyzer:
 
         raise Exception("Command Syntax Invalid")
 
-    async def generate_handler(self,message:Message):
+    async def generate_handler(self,ctx:commands.Bot,message:Message):
         cmd = message.content.split()
         print(cmd)
         if message.guild == None:
             return await message.channel.send("Not in a server")
         server = self.cfg.get_server_alias(message.guild.id)
-        try:
-            match cmd[1]:
-                case "pie":
-                    match cmd[2]:
-                        case "msgs":
-                            # await self.route_range(message,cmd[3:],self.generate_message_pie_chart)
-                            start,end = self.get_start_end(cmd[3:])
-                            msg,attachment = self.generate_message_pie_chart(server,start,end)
-                            await message.channel.send(msg,file=nextcord.File(attachment))
-                        case "emoji":
-                            start,end = self.get_start_end(cmd[4:])
-                            msg,attachment = self.generate_emoji_pie_chart(server,cmd[3],start,end)
-                            await message.channel.send(msg,file=nextcord.File(attachment))
-                case "line":
-                    match cmd[2]:
-                        case "msgs":
-                            pass
-                            # await self.route_range(message,cmd[2:],self.generate_line_chart)
-        except IndexError as e:
-            await message.channel.send(f"Internal Error: Command Syntax Invalid ({e})")
-        # except Exception as e:
-        #     await message.channel.send(f"{e}")
+        # try:
+        match cmd[1]:
+            case "pie"|'p':
+                match cmd[2]:
+                    case "msgs"|'m':
+                        # await self.route_range(message,cmd[3:],self.generate_message_pie_chart)
+                        start,end = self.get_start_end(cmd[3:])
+                        msg,attachment = self.generate_message_pie_chart(server,start,end)
+                        await message.channel.send(msg,file=nextcord.File(attachment))
+                    case "emoji"|'e':
+                        start,end = self.get_start_end(cmd[4:])
+                        msg,attachment = self.generate_emoji_pie_chart(server,cmd[3],start,end)
+                        await message.channel.send(msg,file=nextcord.File(attachment))
+            case "line"|'l':
+                print("line")
+                user : Member|None = None
+                data_select = cmd[2]
+                granularity = cmd[3]
+                match cmd[4]:
+                    case 'total'|'t':
+                        start,end = self.get_start_end(cmd[5:])
+
+                    case 'all'|'a':
+                        start,end = self.get_start_end(cmd[5:])
+                        users = message.guild.humans
+                        match cmd[2]:
+                            case "messages"|'msgs'|'m':
+                                msg,attachment = self.generate_line_message_chart(server,users,start,end,granularity)
+                                await message.channel.send(msg,file=nextcord.File(attachment))
+                            #case "emojis"|"emoji"|"e":
+                                #msg,attachment = self.generate_line_emoji_chart(server,users,start,end)
+                            case _:
+                                await message.channel.send(f"{cmd[2]} not valid")
+                    # case 'user'|'u':
+
+                    #     for member in message.guild.humans:
+                    #         if member.name == cmd[4]:
+                    #             user = member
+                    #             break
+                    #     start,end = self.get_start_end(cmd[5:])
+                    case 'users'|'user'|'u':
+                        raw_users : list[str] = []
+
+                        users : list[Member] = []
+                        for word in cmd[5:]:
+                            # check if valid name to avoid searching entire server and early catch user error
+                            if len(word) > 32:
+                                await message.channel.send(f"{word} is an invalid username (too long {len(word)}>32)")
+                                return
+                            if word == ';':
+                                break
+                            else:
+                                for c in word:
+                                    if c not in string.ascii_lowercase and c not in string.digits and c not in ['_','.']:
+                                        await message.channel.send(f"{word} is an invalid username (invalid character {c})")
+                                        return
+                                raw_users.append(word)
+                        print(raw_users)
+
+                        for member in message.guild.humans:
+                            if member.name in raw_users:
+                                users.append(member)
+                        print(cmd)
+                        start,end = self.get_start_end(cmd[5+len(raw_users)+1:])
+                        match cmd[2].split(':')[0]:
+                            case "messages"|'msgs'|'m':
+                                msg,attachment = self.generate_line_message_chart(server,users,start,end,granularity)
+                                await message.channel.send(msg,file=nextcord.File(attachment))
+                            case "emojis"|"emoji"|"e":
+                                emoji = cmd[2].split(':')[1]
+                                msg,attachment = self.generate_line_emoji_chart(server,users,start,end,granularity,emoji)
+                                await message.channel.send(msg,file=nextcord.File(attachment))
+
+                            case _:
+                                await message.channel.send(f"{cmd[2]} not valid")
+                    case _:
+                        print(f"invalid user select {cmd[4]}")
+                # match cmd[2]:
+                #     case "msgs"|'m':
+                #         pass
+                #         await self.route_range(message,cmd[2:],self.generate_line_chart)
+    # except IndexError as e:
+    #     await message.channel.send(f"Internal Error: Command Syntax Invalid ({e})")
+    # except Exception as e:
+    #     await message.channel.send(f"{e}")
 
         # msg,attachment = self.generate_message_pie_chart('louiscord',9,9)
         # await message.channel.send(msg,file=nextcord.File(attachment))
 
+    def generate_line_message_chart(self,server:str,members:list[Member],start:int,end:int,granularity:str) -> tuple[str,str]:
+        # names = [m.name for m in members]
 
+        ids = [m.id for m in members]
+        all_users = self.collect_data_from_x_to_y(server,start,end)
+        users: list[db.User] = []
+        for user in all_users:
+            if user.id in ids:
+                # print(f"comparing {user.id} with {ids}")
+                users.append(user)
+        users = sorted(users,key=lambda u: u.sum(),reverse=True)
+        names = [u.name for u in users]
+        #
+        # print(f"users: {users}")
+        #
+        print(f"db user: {names}")
+        match granularity:
+            case 'hours'|'hr':
+                # list of users hours flattened, using length of flattened list, display ig is all of day logic + :hr
+                users_y : list[list[int]] = [] # list[list[hour]]
+                for user_i,user in enumerate(users):
+                    print(f"collecting y for {user.name}")
+                    users_y.append(user.get_day(start).msg_hours)
+                    for day_i in range(start+1,end+1):
+                        users_y[user_i].extend(user.get_day(day_i).msg_hours)
+                users_x : list[int] = list(range(len(users_y[0])))
+
+                return self.generate_line_chart(f"Mesasges over Hours from {db.epoch_to_unix(start).strftime("%m/%d/%Y")} to {db.epoch_to_unix(end).strftime("%m/%d/%Y")}","" ,"Hours","Messages",names,users_x,users_y)
+            case 'days'|'d':
+                users_y : list[list[int]] = [] # list[list][day]
+                for user_i,user in enumerate(users):
+                    print(f"collecting y for {user.name}")
+                    users_y.append([user.get_day(start).total()])
+                    for day in range(start+1,end+1):
+                        users_y[user_i].append(user.get_day(day).total())
+                users_x : list[int] = list(range(len(users_y[0])))
+                return self.generate_line_chart(f"Mesasges over Days from {db.epoch_to_unix(start).strftime("%m/%d/%Y")} to {db.epoch_to_unix(end).strftime("%m/%d/%Y")}","" ,"Days","Messages",names,users_x,users_y)
+                # list of users day sum flattened, using start and end display converted to datetime and then to compact date format
+            case _:
+                raise Exception(f"invalid granularity {granularity}")
+
+
+    def generate_line_emoji_chart(self,server:str,members:list[Member],start:int,end:int,granularity,emoji:str) -> tuple[str,str]:
+        # names = [m.name for m in members]
+
+        ids = [m.id for m in members]
+        all_users = self.collect_data_from_x_to_y(server,start,end)
+        users: list[db.User] = []
+        for user in all_users:
+            if user.id in ids:
+                # print(f"comparing {user.id} with {ids}")
+                users.append(user)
+        users = sorted(users,key=lambda u: u.sum(),reverse=True)
+        names = [u.name for u in users]
+        #
+        # print(f"users: {users}")
+        #
+        print(f"db user: {names}")
+        match granularity:
+            case 'hours'|'hour'|'hr':
+                # list of users hours flattened, using length of flattened list, display ig is all of day logic + :hr
+                users_y : list[list[int]] = [] # list[list[hour]]
+                for user_i,user in enumerate(users):
+                    print(f"collecting y for {user.name}")
+                    users_y.append(user.get_day(start).get_emoji(emoji))
+                    for day_i in range(start+1,end+1):
+                        users_y[user_i].extend(user.get_day(day_i).msg_hours)
+                users_x : list[int] = list(range(len(users_y[0])))
+
+                return self.generate_line_chart(f"Mesasges over Hours from {db.epoch_to_unix(start).strftime("%m/%d/%Y")} to {db.epoch_to_unix(end).strftime("%m/%d/%Y")}","" ,"Hours",f"{emoji}s",names,users_x,users_y)
+            case 'days'|'d':
+                users_y : list[list[int]] = [] # list[list][day]
+                for user_i,user in enumerate(users):
+                    print(f"collecting y for {user.name}")
+                    users_y.append([sum(user.get_day(start).get_emoji(emoji))])
+                    for day in range(start+1,end+1):
+                        users_y[user_i].append(user.get_day(day).total())
+                users_x : list[int] = list(range(len(users_y[0])))
+                return self.generate_line_chart(f"Mesasges over Days from {db.epoch_to_unix(start).strftime("%m/%d/%Y")} to {db.epoch_to_unix(end).strftime("%m/%d/%Y")}","" ,"Days",f"{emoji}s",names,users_x,users_y)
+                # list of users day sum flattened, using start and end display converted to datetime and then to compact date format
+            case _:
+                raise Exception(f"invalid granularity {granularity}")
+
+    def generate_line_chart(self,title:str,readout:str,xlabel:str,ylabel:str,line_labels:list[str],x:list[int],y:list[list[int]]) -> tuple[str,str]:
+        fig,ax = plt.subplots()
+        print(f"generating line chart {title} x: {xlabel} y:{ylabel} lbls:{line_labels}")
+        print(f"x: {x} \n\nys: {y}")
+        for i in range(len(y)):
+            ax.plot(x,y[i],label=line_labels[i])
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
+        ax.set_title(title)
+
+        ax.legend()
+        path = get_fig_path()
+        fig.savefig(path)
+        print(f"generated line chart at {path}")
+        return readout,path
 
     def generate_message_pie_chart(self,server:str,start:int,end:int) -> tuple[str,str]:
         users = sorted(self.collect_data_from_x_to_y(server,start,end),key=lambda u: u.sum(),reverse=True)
@@ -209,7 +353,11 @@ class Analyzer:
             autopct='%1.1f%%' # no clue what this is
 
         )
-        path = os.path.join(os.environ['TEMP'] if os.name == 'nt' else '/tmp','louisbot4_pieplot.png')
+        path = get_fig_path()
         figure.savefig(path)
         print(f"{readout}\nplot saved at `{path}`")
         return (readout,path)
+
+
+def get_fig_path() -> str:
+    return os.path.join(os.environ['TEMP'] if os.name == 'nt' else '/tmp','.louisbot_plot.png')
