@@ -1,9 +1,11 @@
 #!/bin/bash
+echo "beginning setup..."
 SCRIPT_DIR="$(dirname "$(realpath "$0")")"
 cd "$SCRIPT_DIR" || exit
 EXE='./louisbot4.py'
 INSTALL_DIR='./.venv/'
-python -m venv $INSTALL_DIR
+echo "creating virtual env"
+/opt/python3.13/bin/python3.13 -m venv $INSTALL_DIR
 source "$INSTALL_DIR/bin/activate"
 if [ -z "$VIRTUAL_ENV" ];then
   echo "failed to make virtual python environment"
