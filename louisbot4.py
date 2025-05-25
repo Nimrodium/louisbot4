@@ -88,6 +88,8 @@ class Scraper(commands.Bot):
             await message.channel.send("processed")
         elif message.content.startswith(f"{self.cfg.prefix}gen"):
             await self.analysis.generate_handler(message)
+        elif message.content == f"{self.cfg.prefix}status":
+            await message.channel.send(f"{self.batch.fill}/{self.cfg.batch_size}")
 if __name__ == "__main__":
     cfg = Config()
     bot = Scraper(cfg)

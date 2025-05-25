@@ -34,6 +34,9 @@ class Config:
         else:
             interactive_setup()
             self.__init__()
+    def get_server_alias(self,id:int) -> str:
+        return self.tracked_servers[str(id)]
+
 def checked_int_input(prompt:str) -> int:
     while True:
         value = input(prompt)

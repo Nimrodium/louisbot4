@@ -142,7 +142,13 @@ class User:
         for day in self.days.values():
             # print("LOOP")
             total+=day.total()
-        print(f"total messages for {self.name} : {total}")
+        # print(f"total messages for {self.name} : {total}")
+        return total
+    def sum_emoji(self,emoji:str) -> int:
+        total = 0
+        for day in self.days.values():
+            s = sum(day.emoji_hours[emoji]) if emoji in day.emoji_hours else 0
+            total+=s
         return total
 
 USERS = 'users'
@@ -150,7 +156,7 @@ META = 'meta'
 
 class ServerFile:
     def __init__(self,inner_path:str,ro:bool=True):
-        print("file path $database/$name/$name-$year.json: ",inner_path)
+        # print("file path $database/$name/$name-$year.json: ",inner_path)
         self.path = inner_path
         self.users : dict[int,User] = {}
         self.meta : dict = {}

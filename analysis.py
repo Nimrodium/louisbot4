@@ -1,10 +1,13 @@
+from typing import Callable
 import nextcord
+from nextcord.guild import Guild
 from nextcord.message import Message
 import database as db
 from config import Config
 import os,datetime,json
 import matplotlib.pyplot as plt
 import copy,random
+from dateutil import parser
 class ColorConfig:
     def __init__(self,cfg:Config):
         self.cfg = cfg
@@ -22,6 +25,8 @@ class ColorConfig:
         self.file[str(id)] = color
         self.flush()
 
+    def get_color_list(self,users:list[db.User]):
+        return [self.file[str(m.id)] if str(m.id) in self.file else f'#{hex(random.randint(0x333333,0xdddddd)).removeprefix('0x')}' for m in users]
 class Analyzer:
     def __init__(self,cfg:Config):
         self.cfg = cfg
@@ -44,7 +49,10 @@ class Analyzer:
         year = datetime.datetime.now().year
 
         while True:
-            svr = fs.get_server(year)
+            try:
+                svr = fs.get_server(year)
+            except:
+                break
             if svr.meta["last_day"] < start or svr.meta["first_day"] > end:
                 year -= 1
                 continue
@@ -70,20 +78,106 @@ class Analyzer:
 
     # def generate_generic_pie_chart(self):
 
+    async def route_range(self,message:Message,cmd:list[str],fn:Callable):
+        assert isinstance(message.guild,Guild)
+        print(cmd)
+        match cmd[0]:
+            case "past":
+                print(cmd[0])
+                match cmd[2]:
+                    case "days"|"day"|"d":
+                        print(cmd[2])
+                        if cmd[1].isdigit():
+                            print(cmd[1])
+                            start = db.datetime_to_epoch_day(datetime.datetime.now() - datetime.timedelta(days=int(cmd[1])))
+                            end = db.datetime_to_epoch_day(datetime.datetime.now())
+                            msg,attachment = fn(self.cfg.get_server_alias(message.guild.id),start,end)
+                            await message.channel.send(msg,file=nextcord.File(attachment))
+                        else:
+                            await message.channel.send("not a number")
+    def get_start_end(self,cmd:list[str]) -> tuple[int,int]:
+        match cmd[0]:
+            case "past"|"last":
+                match cmd[2]:
+                    case "day"|"days"|"d":
+                        if cmd[1].isdigit():
+                            start = db.datetime_to_epoch_day(datetime.datetime.now() - datetime.timedelta(days=int(cmd[1])))
+                            end = db.datetime_to_epoch_day(datetime.datetime.now())
+                            return (start,end)
+                        else:
+                            raise Exception("Value is not Digit")
+            case "since":
+                human_readable = " ".join(cmd[1:])
+                start =  db.datetime_to_epoch_day(parser.parse(human_readable))
+                end = db.datetime_to_epoch_day(datetime.datetime.now())
+                return (start,end)
+            case "from":
+                start_human_readable_list = []
+                for s in cmd[1:]:
+                    if s == "to":
+                        break
+                    else:
+                        start_human_readable_list.append(s)
+
+                start = db.datetime_to_epoch_day(parser.parse(" ".join(start_human_readable_list)))
+                end = db.datetime_to_epoch_day(parser.parse(" ".join(cmd[len(start_human_readable_list)+2:])))
+                return (start,end)
+
+
+        raise Exception("Command Syntax Invalid")
+
     async def generate_handler(self,message:Message):
-        msg,attachment = self.generate_message_pie_chart('louiscord',9,9)
-        await message.channel.send(msg,file=nextcord.File(attachment))
+        cmd = message.content.split()
+        print(cmd)
+        if message.guild == None:
+            return await message.channel.send("Not in a server")
+        server = self.cfg.get_server_alias(message.guild.id)
+        try:
+            match cmd[1]:
+                case "pie":
+                    match cmd[2]:
+                        case "msgs":
+                            # await self.route_range(message,cmd[3:],self.generate_message_pie_chart)
+                            start,end = self.get_start_end(cmd[3:])
+                            msg,attachment = self.generate_message_pie_chart(server,start,end)
+                            await message.channel.send(msg,file=nextcord.File(attachment))
+                        case "emoji":
+                            start,end = self.get_start_end(cmd[4:])
+                            msg,attachment = self.generate_emoji_pie_chart(server,cmd[3],start,end)
+                            await message.channel.send(msg,file=nextcord.File(attachment))
+                case "line":
+                    match cmd[2]:
+                        case "msgs":
+                            pass
+                            # await self.route_range(message,cmd[2:],self.generate_line_chart)
+        except IndexError as e:
+            await message.channel.send(f"Internal Error: Command Syntax Invalid ({e})")
+        # except Exception as e:
+        #     await message.channel.send(f"{e}")
+
+        # msg,attachment = self.generate_message_pie_chart('louiscord',9,9)
+        # await message.channel.send(msg,file=nextcord.File(attachment))
+
+
 
     def generate_message_pie_chart(self,server:str,start:int,end:int) -> tuple[str,str]:
         users = sorted(self.collect_data_from_x_to_y(server,start,end),key=lambda u: u.sum(),reverse=True)
         # print(users)
         labels = [u.name for u in users]
         values = [u.sum() for u in users]
-        colors = [self.colors.file[str(m.id)] if str(m.id) in self.colors.file else f'#{hex(random.randint(0x333333,0xdddddd)).removeprefix('0x')}' for m in users]
+        colors = self.colors.get_color_list(users)
         readout = "pie chart messages"
         suffix = "msgs"
 
         print(labels,values)
+        return self.generic_pie_chart(readout,labels,values,colors,suffix)
+    def generate_emoji_pie_chart(self,server:str,emoji:str,start:int,end:int) -> tuple[str,str]:
+        users = sorted(self.collect_data_from_x_to_y(server,start,end),key=lambda u: u.sum_emoji(emoji),reverse=True)
+        labels = [u.name for u in users]
+        values = [u.sum_emoji(emoji) for u in users]
+        colors = self.colors.get_color_list(users)
+        readout = "pie chart emojis"
+        suffix = f" {emoji}s"
         return self.generic_pie_chart(readout,labels,values,colors,suffix)
 
     def generic_pie_chart(self,readout:str,labels:list[str],values:list[int],colors:list[str],suffix:str) -> tuple[str,str]:
