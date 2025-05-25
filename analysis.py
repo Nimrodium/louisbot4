@@ -12,7 +12,7 @@ class ColorConfig:
         self.file : dict[str,str] = json.load(open(self.file_path,'r'))
 
     def flush(self):
-        with open(self.file_path) as f:
+        with open(self.file_path,'w') as f:
             json.dump(self.file,f)
 
     def get_user_color(self,id:int) -> str|None:
@@ -42,9 +42,13 @@ class Analyzer:
 
         fs = db.ROServerFS(os.path.join(self.cfg.database_directory,server))
         year = datetime.datetime.now().year
-
+        
         while True:
-            svr = fs.get_server(year)
+            try:
+                svr = fs.get_server(year)
+            except:
+                raise Exception("data for specified range does not exist")
+            
             if svr.meta["last_day"] < start or svr.meta["first_day"] > end:
                 year -= 1
                 continue
@@ -71,8 +75,12 @@ class Analyzer:
     # def generate_generic_pie_chart(self):
 
     async def generate_handler(self,message:Message):
-        msg,attachment = self.generate_message_pie_chart('louiscord',9,9)
-        await message.channel.send(msg,file=nextcord.File(attachment))
+        try:
+            msg,attachment = self.generate_message_pie_chart('louiscord',10,10)
+            await message.channel.send(msg,file=nextcord.File(attachment))
+        except Exception as e:
+            await message.channel.send(f"Internal Error: {e}")
+
 
     def generate_message_pie_chart(self,server:str,start:int,end:int) -> tuple[str,str]:
         users = sorted(self.collect_data_from_x_to_y(server,start,end),key=lambda u: u.sum(),reverse=True)

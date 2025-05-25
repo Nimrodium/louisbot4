@@ -168,7 +168,7 @@ class ServerFile:
             self.meta['first_day'] = current_epoch_day
             self.meta['last_day'] = current_epoch_day
         else:
-            raise Exception(f"error retrieving server file: {inner_path} not found")
+            raise Exeception(f"error retrieving server file: {inner_path} not found")
 
     def to_dict(self) -> dict:
         users = {}
