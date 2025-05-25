@@ -47,17 +47,12 @@ class Analyzer:
 
         fs = db.ROServerFS(os.path.join(self.cfg.database_directory,server))
         year = datetime.datetime.now().year
-        
+
         while True:
             try:
                 svr = fs.get_server(year)
             except:
-<<<<<<< HEAD
                 break
-=======
-                raise Exception("data for specified range does not exist")
-            
->>>>>>> 41dc0147c5d03fcf1ae0f393f0a597e8db198aba
             if svr.meta["last_day"] < start or svr.meta["first_day"] > end:
                 year -= 1
                 continue
@@ -132,7 +127,6 @@ class Analyzer:
         raise Exception("Command Syntax Invalid")
 
     async def generate_handler(self,message:Message):
-<<<<<<< HEAD
         cmd = message.content.split()
         print(cmd)
         if message.guild == None:
@@ -164,13 +158,6 @@ class Analyzer:
         # msg,attachment = self.generate_message_pie_chart('louiscord',9,9)
         # await message.channel.send(msg,file=nextcord.File(attachment))
 
-=======
-        try:
-            msg,attachment = self.generate_message_pie_chart('louiscord',10,10)
-            await message.channel.send(msg,file=nextcord.File(attachment))
-        except Exception as e:
-            await message.channel.send(f"Internal Error: {e}")
->>>>>>> 41dc0147c5d03fcf1ae0f393f0a597e8db198aba
 
 
     def generate_message_pie_chart(self,server:str,start:int,end:int) -> tuple[str,str]:
