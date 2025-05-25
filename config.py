@@ -9,6 +9,7 @@ class Config:
     KEY_DB_ROOT="database"
     KEY_PREFIX="prefix"
     KEY_SERVER_NAMES="server_names"
+    KEY_TRACKED_SERVERS = "tracked_servers"
     def __init__(self):
         if os.path.exists(CONFIG):
             with open(CONFIG,'r') as f:
@@ -20,8 +21,9 @@ class Config:
                     # self.range_days : int = cfg[self.KEY_RANGE_DAYS]
                     self.database_directory : str = cfg[self.KEY_DB_ROOT]
                     self.prefix : str = cfg[self.KEY_PREFIX]
-                    self.server_names : dict[str,str] = cfg[self.KEY_SERVER_NAMES]
+                    # self.server_names : dict[str,str] = cfg[self.KEY_SERVER_NAMES]
                     self.dump_interval_minutes : int = int(cfg[self.KEY_DUMP_INTERVAL_MINUTES])
+                    self.tracked_servers : dict[str,str] = cfg[self.KEY_TRACKED_SERVERS]
                     # print(self.server_names)
                 except KeyError as e:
                     print(f"missing key `{e}`")
