@@ -10,7 +10,7 @@ source "$INSTALL_DIR/bin/activate"
 if [ -z "$VIRTUAL_ENV" ];then
   echo "failed to make virtual python environment"
   exit
-fi 
+fi
 pip install -r requirements.txt
 
 echo "cd $SCRIPT_DIR||exit;source $INSTALL_DIR/bin/activate;python $EXE" > run.sh
@@ -28,7 +28,7 @@ User=$(whoami)
 #StandardError=append:${INSTALLDIR}/logs/stderr.log
 [Install]
 WantedBy=multi-user.target
-" 
+"
 
 
 read -r -p "Install Service (systemd)? [y/N] " response
@@ -36,7 +36,7 @@ response=${response,,}    # tolower
 if [[ "$response" =~ ^(yes|y)$ ]]
 	path=/etc/systemd/system/louisbot.service
 	echo "Writing \n${service}\n---\n to ${path}"
-	echo ${service} > | sudo tee ${path}
+	echo ${service} | sudo tee ${path}
 else
 	echo "generated service file:\n---\n${service}\n"
 fi

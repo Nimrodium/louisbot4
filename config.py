@@ -54,6 +54,7 @@ def interactive_setup():
     cfg[Config.KEY_DB_ROOT] = input(f"{Config.KEY_DB_ROOT}: ")
     cfg[Config.KEY_PREFIX]= input(f"{Config.KEY_PREFIX}")
     cfg[Config.KEY_SERVER_NAMES] = {}
+    cfg[Config.KEY_TRACKED_SERVERS] = {}
     jsonned = json.dumps(cfg)
     with open(CONFIG,'x') as f:
         f.write(jsonned)
