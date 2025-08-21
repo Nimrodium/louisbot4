@@ -72,15 +72,8 @@ class Scraper(commands.Bot):
         self.batch.flush()
         self.flush_servers()
 
-    async def on_message(self,message:Message):
-        print(f"MESSAGE: {message.author.name}: {message.content}")
-        if message.guild and not message.author.bot:
-            self.batch.log_pointer(message.guild.id,message.channel.id,message.created_at.timestamp())
-            self.batch.fill +=1
-            if self.batch.fill > self.cfg.batch_size:
-                print("processing batch")
-                await self.process_batch()
 
+    async def message_handler(self,message:Message):
         if message.content == f"{self.cfg.prefix}ping":
             await message.channel.send("pong!")
         elif message.content == f"{self.cfg.prefix}process":
@@ -90,6 +83,23 @@ class Scraper(commands.Bot):
             await self.analysis.generate_handler(self,message)
         elif message.content == f"{self.cfg.prefix}status":
             await message.channel.send(f"{self.batch.fill}/{self.cfg.batch_size}")
+
+    async def on_message(self,message:Message):
+        print(f"MESSAGE: {message.author.name}: {message.content}")
+        if message.guild and not message.author.bot:
+            self.batch.log_pointer(message.guild.id,message.channel.id,message.created_at.timestamp())
+            self.batch.fill +=1
+            if self.batch.fill > self.cfg.batch_size:
+                print("processing batch")
+                await self.process_batch()
+
+        if message.content.startswith(self.cfg.prefix):
+            await self.message_handler(message)
+
+
+
+
+
 if __name__ == "__main__":
     cfg = Config()
     bot = Scraper(cfg)
