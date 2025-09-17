@@ -5,6 +5,9 @@ Louis sits in the background and tallies messages, including emoji count on said
 </br>
 This is the fourth iteration of LouisBot, and the first to use this passive tally system, older methods which did a bulk scan, from scatch, at every invokation, they also had no server integration, and could only be invoked via the command line, as the program was a one shot. louisbot4 is a great improvement in methodolgy.
 
+
+## database
+louisbot needs a directory assigned to it which will be its database, each server will create a directory in the database with the same name as the name of the serverid given in the config, which contains a json file of the database json file of that year.
 ## Running
 running louisbot is simple because it is python, it is also incredibly infuriating because it is python. to alleviate this it is recommended to use a virtual environment so that it does not pollute your system install. louisbot is built against python3.13 earlier versions might not work.
 </br>
@@ -32,7 +35,7 @@ louisbot now uses [UV](https://docs.astral.sh/uv/) (a project management program
 
 ## Config
 
-on first run louisbot will prompt has an interactive setup to generate a config file such as the one shown below:
+on first run louisbot will prompt has an interactive setup to generate a config file at `./lb4_config.json` such as the one shown below:
 ```json
     {
     "batch_size": 50,
