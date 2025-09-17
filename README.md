@@ -54,14 +54,14 @@ Louisbot can be run on Linux and Windows, however i frankly have no idea how to 
   Description=Discord Server Statistics Bot
   After=network.target
 
-  [Service]
+[Service]
   WorkingDirectory=/path/to/louisbot4/app/
   ExecStart=/path/to/louisbot4/.venv/bin/python -u /path/to/louisbot4/app/main.py
   User=YourUser
 
   #StandardOutput=append:/path/to/louisbot4/logs/stdout.log
   #StandardError=append:/path/to/louisbot4/logs/stderr.log
-  [Install]
+[Install]
   WantedBy=multi-user.target
 ```
 
