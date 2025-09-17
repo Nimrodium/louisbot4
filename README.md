@@ -6,7 +6,7 @@ Louis sits in the background and tallies messages, including emoji count on said
 This is the fourth iteration of LouisBot, and the first to use this passive tally system, older methods which did a bulk scan, from scatch, at every invokation, they also had no server integration, and could only be invoked via the command line, as the program was a one shot. louisbot4 is a great improvement in methodolgy.
 
 ## Running
-running louisbot is simple because it is python, it is also incredibly infuriating because it is python. to eleviate this it is recommended to use a virtual environment so that it does not pollute your system install. louisbot is built against python3.13 earlier versions might not work.
+running louisbot is simple because it is python, it is also incredibly infuriating because it is python. to alleviate this it is recommended to use a virtual environment so that it does not pollute your system install. louisbot is built against python3.13 earlier versions might not work.
 </br>
 louisbot now uses [UV](https://docs.astral.sh/uv/) (a project management program inspired by cargo for python) it is not necessary to have uv installed to setup and run. (but makes it easier as it manages the python version itself too).
 
