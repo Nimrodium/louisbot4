@@ -1,0 +1,10 @@
+[project]
+name = "louisbot4"
+version = "0.1.0"
+description = "discord bot for tracking statistics"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "matplotlib>=3.10.6",
+    "nextcord>=3.1.1",
+]
