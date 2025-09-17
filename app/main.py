@@ -1,12 +1,52 @@
 from nextcord.message import Message
 from analysis import Analyzer
-from database import Server,BatchCache,build_file_path
+from database import Server,BatchCache
 from nextcord.ext import commands
 import nextcord
 from nextcord.abc import Messageable
 import datetime
 import os
+import psutil
 from config import Config
+
+db_lock_file = "db.lock"
+
+# returns True for safe to delete and proceed, False for lock file is valid
+def can_delete_lock(lock:str) -> bool:
+    with open(lock) as f:
+        raw = f.read()
+        pid : int
+        if raw.isdigit():
+            pid = int(raw)
+        else:
+            raise Exception(f"could not read database lock file: {lock} contained a non-integer PID")
+        if os.getpid() == pid:
+            print("lock file was spawned by this process")
+            return True
+        elif not psutil.pid_exists(pid):
+            print(f"lock file {lock} found but the owner process has since died, safe to proceed")
+            return True
+        else:
+            print(f"lock file {lock} exists and is not stale, process {pid} is still running!\nCannot run two instances of louisbot on the same database!!")
+            return False
+
+def lock_db(db_dir:str) -> None:
+    lock = os.path.join(db_dir,db_lock_file)
+    # check if lock.db already exists and if the lock is valid, gets rid of lock.db or leaves
+    if os.path.exists(lock):
+        if can_delete_lock(lock):
+            print(f"deleting stale lock file: {lock}")
+            delete_lock(lock)
+        else:
+           exit(1)
+    with open(lock,"w") as f:
+        self_pid = os.getpid()
+        print(f"writing lock file: {lock} with pid {self_pid}")
+        f.write(str(self_pid))
+
+def delete_lock(lock:str):
+    os.remove(lock)
+
 class Scraper(commands.Bot):
     def __init__(self,cfg:Config):
         print("init")
@@ -69,9 +109,12 @@ class Scraper(commands.Bot):
 
     async def on_disconnect(self):
         print("disconnected")
+        print("flushing batch to database")
         self.batch.flush()
         self.flush_servers()
-
+        print("unlocking database")
+        delete_lock(os.path.join(self.cfg.database_directory,db_lock_file))
+        print("bye!")
 
     async def message_handler(self,message:Message):
         if message.content == f"{self.cfg.prefix}ping":
@@ -98,9 +141,8 @@ class Scraper(commands.Bot):
 
 
 
-
-
 if __name__ == "__main__":
     cfg = Config()
     bot = Scraper(cfg)
+    lock_db(cfg.database_directory)
     bot.run(cfg.token, reconnect=True)
