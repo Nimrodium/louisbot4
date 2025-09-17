@@ -51,11 +51,15 @@ def interactive_setup():
     cfg[Config.KEY_TOKEN] = input(f"{Config.KEY_TOKEN}: ").strip()
     cfg[Config.KEY_BATCH_SIZE] = checked_int_input(f"{Config.KEY_BATCH_SIZE}: ")
     cfg[Config.KEY_DUMP_INTERVAL_MINUTES] = checked_int_input(f"{Config.KEY_DUMP_INTERVAL_MINUTES}")
-    cfg[Config.KEY_DB_ROOT] = input(f"{Config.KEY_DB_ROOT}: ")
+    config_root = input(f"{Config.KEY_DB_ROOT}: ")
+    cfg[Config.KEY_DB_ROOT] = config_root
+    with open(f"{config_root}/colors.json") as f:
+        f.write(json.dumps({}))
     cfg[Config.KEY_PREFIX]= input(f"{Config.KEY_PREFIX}")
     cfg[Config.KEY_SERVER_NAMES] = {}
     cfg[Config.KEY_TRACKED_SERVERS] = {}
     jsonned = json.dumps(cfg)
     with open(CONFIG,'x') as f:
         f.write(jsonned)
+
     print("config generated")
