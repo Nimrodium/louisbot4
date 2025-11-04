@@ -1,6 +1,6 @@
 from nextcord.message import Message
 from analysis import Analyzer
-from database import Server,BatchCache
+from database import Server,BatchCache,DB
 from nextcord.ext import commands
 import nextcord
 from nextcord.abc import Messageable
@@ -60,7 +60,7 @@ class Scraper(commands.Bot):
 
 
         self.cfg = cfg
-        self.servers : dict[int,Server] = {}
+        self.servers : DB = {}
         self.batch = BatchCache(cfg.database_directory)
         self.analysis = Analyzer(cfg)
     def flush_servers(self):

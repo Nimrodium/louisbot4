@@ -209,6 +209,8 @@ class ServerFile:
                 return None
             self.users[id] = User(id,name,{})
             return self.users[id]
+        else:
+            return None
 
     def update_last_day_to_now(self):
         self.meta['last_day'] = datetime_to_epoch_day(datetime.now())
@@ -280,7 +282,7 @@ class BatchCache:
             print(f"logging pointer sid:{server_id} cid:{channel_id}")
     def clear(self):
         self.servers = {}
-
+type DB = dict[str,Server]
 if __name__ == "__main__":
     server = Server('test_server')
     # server.update_user_msg_count(0,"nimmy",10)
