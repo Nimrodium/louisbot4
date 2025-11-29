@@ -59,6 +59,7 @@ class Analyzer:
             if svr.meta["last_day"] < start or svr.meta["first_day"] > end:
                 year -= 1
                 continue
+            smallest = 1000000000000000000 # huge fucking sentinel change
             for user_id,user in svr.users.items():
                 # print(f"Collecting data on {user.name} during {year}, days: {user.days}")
                 if user_id in users.keys():
@@ -68,7 +69,9 @@ class Analyzer:
                     # print("users[user_id].days = ",users[user_id].days)
                     for day in list(users[user_id].days.keys()):
                         if day < start or day > end:
-                            print(f"day {day} for {user.name} REJECTED {day} <= {start} or {day} >= {end}")
+                            # print(f"day {day} for {user.name} rejected as {f"day is less than start ({start})" if day < start else f"day greater than end ({end})"}")
+                            if day < smallest:
+                                smallest = day
                             users[user_id].days.pop(day)
                         # else:
                         #     users[user_id].days[day] =
@@ -76,6 +79,7 @@ class Analyzer:
                 break
             else:
                 year -= 1
+        print(f"smallest day {smallest}")
         return list(users.values())
 
     def get_start_end(self,cmd:list[str]) -> tuple[int,int]:
@@ -205,16 +209,16 @@ class Analyzer:
         # msg,attachment = self.generate_message_pie_chart('louiscord',9,9)
         # await message.channel.send(msg,file=nextcord.File(attachment))
 
-    def generate_line_message_chart(self,server:str,members:list[Member],start:int,end:int,granularity:str) -> tuple[str,str]:
+    def generate_line_message_chart(self,server:str,users:list[db.User],start:int,end:int,granularity:str) -> tuple[str,str|None]:
         # names = [m.name for m in members]
 
-        ids = [m.id for m in members]
-        all_users = self.collect_data_from_x_to_y(server,start,end)
-        users: list[db.User] = []
-        for user in all_users:
-            if user.id in ids:
-                # print(f"comparing {user.id} with {ids}")
-                users.append(user)
+        # ids = [m.id for m in members]
+        # all_users = self.collect_data_from_x_to_y(server,start,end)
+        # users: list[db.User] = []
+        # for user in all_users:
+        #     if user.id in ids:
+        #         # print(f"comparing {user.id} with {ids}")
+        #         users.append(user)
         users = sorted(users,key=lambda u: u.sum(),reverse=True)
         names = [u.name for u in users]
         #
@@ -247,17 +251,18 @@ class Analyzer:
                 raise Exception(f"invalid granularity {granularity}")
 
 
-    def generate_line_emoji_chart(self,server:str,members:list[Member],start:int,end:int,granularity,emoji:str) -> tuple[str,str]:
+    def generate_line_emoji_chart(self,server:str,users:list[db.User],start:int,end:int,granularity,emoji:str) -> tuple[str,str|None]:
         # names = [m.name for m in members]
 
-        ids = [m.id for m in members]
-        all_users = self.collect_data_from_x_to_y(server,start,end)
-        users: list[db.User] = []
-        for user in all_users:
-            if user.id in ids:
-                # print(f"comparing {user.id} with {ids}")
-                users.append(user)
-        users = sorted(users,key=lambda u: u.sum(),reverse=True)
+        # ids = [m.id for m in members]
+        # users = 
+        # users: list[db.User] = []
+        # for user in all_users:
+        #     if user.id in ids:
+        #         # print(f"comparing {user.id} with {ids}")
+        #         users.append(user)
+        users = sorted(self.collect_data_from_x_to_y(server,start,end),key=lambda u: u.sum(),reverse=True)
+        
         names = [u.name for u in users]
         #
         # print(f"users: {users}")
@@ -288,7 +293,7 @@ class Analyzer:
             case _:
                 raise Exception(f"invalid granularity {granularity}")
 
-    def generate_line_chart(self,title:str,readout:str,xlabel:str,ylabel:str,line_labels:list[str],x:list[int],y:list[list[int]]) -> tuple[str,str]:
+    def generate_line_chart(self,title:str,readout:str,xlabel:str,ylabel:str,line_labels:list[str],x:list[int],y:list[list[int]]) -> tuple[str,str|None]:
         fig,ax = plt.subplots()
         print(f"generating line chart {title} x: {xlabel} y:{ylabel} lbls:{line_labels}")
         print(f"x: {x} \n\nys: {y}")
@@ -303,10 +308,13 @@ class Analyzer:
         fig.savefig(path)
         print(f"generated line chart at {path}")
         return readout,path
+    def get_users_list(self,all_users:list[db.User],included_users:list[db.User]) -> list[db.User]:
+        return [u for u in all_users if u.name in map(lambda u: u.name,included_users)]
 
-    def generate_message_pie_chart(self,server:str,start:int,end:int) -> tuple[str,str]:
-        users = sorted(self.collect_data_from_x_to_y(server,start,end),key=lambda u: u.sum(),reverse=True)
-        # print(users)
+    def generate_message_pie_chart(self,server:str,users:list[db.User],start:int,end:int) -> tuple[str,str|None]:
+        all_users = sorted(self.collect_data_from_x_to_y(server,start,end),key=lambda u: u.sum(),reverse=True)
+        users = self.get_users_list(all_users,users)
+        print(f"users included: {list(map(lambda u: u.name,users))}")
         labels = [u.name for u in users]
         values = [u.sum() for u in users]
         colors = self.colors.get_color_list(users)
@@ -315,8 +323,9 @@ class Analyzer:
 
         print(labels,values)
         return self.generic_pie_chart(readout,labels,values,colors,suffix)
-    def generate_emoji_pie_chart(self,server:str,emoji:str,start:int,end:int) -> tuple[str,str]:
-        users = sorted(self.collect_data_from_x_to_y(server,start,end),key=lambda u: u.sum_emoji(emoji),reverse=True)
+    def generate_emoji_pie_chart(self,server:str,emoji:str,users:list[db.User],start:int,end:int) -> tuple[str,str|None]:
+        all_users = sorted(self.collect_data_from_x_to_y(server,start,end),key=lambda u: u.sum_emoji(emoji),reverse=True)
+        users = self.get_users_list(all_users,users)
         labels = [u.name for u in users]
         values = [u.sum_emoji(emoji) for u in users]
         colors = self.colors.get_color_list(users)
@@ -324,10 +333,13 @@ class Analyzer:
         suffix = f" {emoji}s"
         return self.generic_pie_chart(readout,labels,values,colors,suffix)
 
-    def generic_pie_chart(self,readout:str,labels:list[str],values:list[int],colors:list[str],suffix:str) -> tuple[str,str]:
-        all = sum(values)
-        print("sum of all values: ",all)
-        percents = [v/all*100 for v in values]
+    def generic_pie_chart(self,readout:str,labels:list[str],values:list[int],colors:list[str],suffix:str) -> tuple[str,str|None]:
+        print(f"labels: {labels}")
+        all_values = sum(values)
+        print("sum of all values: ",all_values)
+        if all_values == 0:
+            return ("Empty graph",None)
+        percents = [v/all_values*100 for v in values]
         print("percents: ",percents)
         CUTOFF_PERCENT : float = 2.0
         users_to_display = 0

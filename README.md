@@ -34,8 +34,7 @@ louisbot now uses [UV](https://docs.astral.sh/uv/) (a project management program
 ```
 
 ## Config
-
-on first run louisbot will prompt has an interactive setup to generate a config file at `./lb4_config.json` such as the one shown below:
+on first run, or if a config file does not already exist, louisbot will interactively generate a new config file at `./config.json`, such as the one shown below:
 ```json
     {
     "batch_size": 50,

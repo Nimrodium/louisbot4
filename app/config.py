@@ -1,5 +1,5 @@
 import json,os
-CONFIG="./lb4_config.json"
+CONFIG="./config.json"
 class Config:
     KEY_BATCH_SIZE="batch_size"
     KEY_TOKEN="token"

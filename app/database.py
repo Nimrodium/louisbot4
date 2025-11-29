@@ -4,12 +4,14 @@ import json
 import os
 from config import Config
 from dataclasses import dataclass,field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 EPOCH = datetime(2025,5,14)
 
 def datetime_to_epoch_day(day:datetime) -> int:
+    if day.tzinfo is not None:
+        day = day.astimezone(timezone.utc).replace(tzinfo=None)
     diff = day - EPOCH
-    return diff.days
+    return diff.days if diff.days > -1 else 0
 
 # def datetime_to_epoch_day(datetime.now()) -> int:
 #     return (datetime.now() - EPOCH).days
@@ -104,22 +106,22 @@ class User:
         else:
             return day
 
-    def update_message_count_at(self,hr:int,msgs:int):
-        day_key = datetime_to_epoch_day(datetime.now())
-        # hr = datetime.now().hour
-        print(self.days)
+    def update_message_count_at(self,date:datetime,msgs:int):
+        day_key = datetime_to_epoch_day(date)
+        hr = date.hour
+        # print(self.days)
         day = self.days.get(day_key)
         if day:
             day.msg_hours[hr]+=msgs
         else:
             self.days[day_key] = Day(datetime_to_epoch_day(datetime.now()))
-            print("old_count: ",self.days[day_key].msg_hours[hr])
+            # print("old_count: ",self.days[day_key].msg_hours[hr])
             self.days[day_key].msg_hours[hr]+=msgs
 
     def update_emoji_count_for_right_now_at(self,hr:int,emoji:str,count:int):
         day_key =datetime_to_epoch_day(datetime.now())
         # hr = datetime.now().hour
-        print(self.days)
+        # print(self.days)
         day = self.days.get(day_key)
         if not day:
             self.days[day_key] = Day(datetime_to_epoch_day(datetime.now()))
@@ -160,12 +162,13 @@ class User:
 
 USERS = 'users'
 META = 'meta'
-
+REACTIONS = 'reactions'
 class ServerFile:
     def __init__(self,inner_path:str,ro:bool=True):
         # print("file path $database/$name/$name-$year.json: ",inner_path)
         self.path = inner_path
         self.users : dict[int,User] = {}
+        self.reactions : list[str] = []
         self.meta : dict = {}
         self.read_only = ro
         if os.path.exists(inner_path):
@@ -174,6 +177,8 @@ class ServerFile:
             for user_id,user in inner[USERS].items():
                 self.users[int(user_id)] = User.from_dict(user)
             self.meta = inner[META]
+            if REACTIONS in inner.keys():
+                self.reactions = inner[REACTIONS]
         elif not self.read_only:
             # its going to assume that its making the new file because its a new year, the current year.
             self.meta['year'] = datetime.now().year
@@ -187,7 +192,7 @@ class ServerFile:
         users = {}
         for (id,user) in self.users.items():
             users[id] = user.to_dict()
-        return {USERS:users,META:self.meta}
+        return {USERS:users,REACTIONS:self.reactions,META:self.meta}
 
     def flush(self):
         if not self.read_only:
@@ -199,18 +204,23 @@ class ServerFile:
         else:
             print(f"attempted to flush read only file {self.path}")
 
-    def get_user(self,id:int,**kwargs) -> User|None:
+    def get_user(self,id:int,name:str|None=None) -> User|None:
         if id in self.users.keys():
             return self.users[id]
         elif not self.read_only:
-            name = kwargs.get('name')
-            if not name:
+            # name = kwargs.get('name')
+            if name is None:
                 print('could not default user as no name was provided')
                 return None
             self.users[id] = User(id,name,{})
             return self.users[id]
         else:
             return None
+    def get_all_users(self) -> list[User]:
+        return list(self.users.values())
+    
+    def get_all_reactions(self) -> list[str]:
+        return self.reactions
 
     def update_last_day_to_now(self):
         self.meta['last_day'] = datetime_to_epoch_day(datetime.now())
@@ -240,16 +250,18 @@ class Server:
         now = datetime.now()
         self.db = ServerFile(build_file_path(server_path,now.year),ro=False)
 
-    def update_user_msg_count(self,id:int,name:str,hr:int,new_msgs:int):
+    def update_user_msg_count(self,id:int,name:str,date:datetime,new_msgs:int):
         user = self.db.get_user(id,name=name)
         if user:
-            user.update_message_count_at(hr,new_msgs)
+            user.update_message_count_at(date,new_msgs)
         else:
             print(f"FAILED TO GET USER {name} AND UPDATE COUNT !!! ")
-    def update_user_emoji_count(self,id:int,name:str,hr:int,emoji:str,new_emojis:int):
+    def update_user_emoji_count(self,id:int,name:str,hr:int,emoji:str,new_emojis_count:int):
+        if emoji not in self.db.reactions:
+            self.db.reactions.append(emoji)
         user = self.db.get_user(id,name=name)
         if user:
-            user.update_emoji_count_for_right_now_at(hr,emoji, new_emojis)
+            user.update_emoji_count_for_right_now_at(hr,emoji, new_emojis_count)
         else:
             print(f"FAILED TO GET USER {name} AND UPDATE emoji COUNT !!! ")
 
