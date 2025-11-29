@@ -15,7 +15,10 @@ class ColorConfig:
     def __init__(self,cfg:Config):
         self.cfg = cfg
         self.file_path = os.path.join(self.cfg.database_directory,'colors.json')
-        self.file : dict[str,str] = json.load(open(self.file_path,'r'))
+        if os.path.exists(self.file_path):
+            self.file : dict[str,str] = json.load(open(self.file_path,'r'))
+        else:
+            self.fle : dict[str,str] = {}
 
     def flush(self):
         with open(self.file_path,'w') as f:
