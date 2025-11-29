@@ -303,7 +303,7 @@ def parse_plot(cmd_stm: ParseStream[str]) -> ParsedGraphCommand | Error:
             return Error("expected a plot subcommand, either line or pie")
     result = parse_data_range(cmd_stm)
     if isinstance(result,Error):
-        return result.traceback("while evaluating range")
+        return result.traceback("evaluating range")
     else:
         data_range_start, data_range_end = result
     # data_range_start=0
@@ -346,6 +346,13 @@ def parse_data_kind(command_stream: ParseStream[str]) -> GraphCommand | Error:
 
 
 def parse_data_range(stream: ParseStream[str]) -> Tuple[int, int]|Error:
+    def natural_lang_parser(stream:ParseStream[str],stop_at:str|None=None) -> int|Error:
+        collected = collect_stream(stream,stop_at)
+        try:
+            dt = natural_date_parser.parse(collected)
+            return datetime_to_epoch_day(dt)
+        except Exception as e:
+            return Error(f"natural language parser failed: {e}") 
     # because range is last we can consume the rest of the stream, 
     # however if it wasnt last, id probably have a delimiter token like ;
     # for this.
@@ -358,7 +365,7 @@ def parse_data_range(stream: ParseStream[str]) -> Tuple[int, int]|Error:
                 if stop_at is not None and nxt ==stop_at:
                     break
                 else:
-                    aggregate+=nxt
+                    aggregate+=" "+nxt
             else:
                 break
         return aggregate
@@ -408,14 +415,24 @@ def parse_data_range(stream: ParseStream[str]) -> Tuple[int, int]|Error:
                 datetime_to_epoch_day(now)
                 )
         case "since":
+            since_start = natural_lang_parser(stream)
+            since_end = datetime_to_epoch_day(now)
+            if isinstance(since_start,Error):
+                return since_start.traceback("evaluating `since`")
             return (
-                datetime_to_epoch_day(natural_date_parser.parse(collect_stream(stream))),
-                datetime_to_epoch_day(now)
-                )
+                since_start,since_end
+            )
+        
         case "from":
+            from_start : int|Error = natural_lang_parser(stream,stop_at="to")
+            from_end : int|Error = natural_lang_parser(stream)
+            if isinstance(from_start,Error):
+                return from_start.traceback("evaluating `a` in from `a` to `b`")
+            if isinstance(from_end,Error):
+                return from_end.traceback("evaluating `b` in from `a` to `b`")
             return (
-                datetime_to_epoch_day(natural_date_parser.parse(collect_stream(stream,stop_at="to"))),
-                datetime_to_epoch_day(natural_date_parser.parse(collect_stream(stream)))
+                from_start,
+                from_end
             )
         case _:
             return Error(f"{nxt} is not a valid date format, from the set of `since` `from` `past` ")
