@@ -177,8 +177,8 @@ class Scraper(commands.Bot):
             if self.batch.fill > self.cfg.batch_size:
                 print("processing batch")
                 await self.process_batch()
-
-        await self.bridges.handle_bridges(self, message)
+        # bridge moved to other program
+        # await self.bridges.handle_bridges(self, message)
 
         if message.content.startswith(self.cfg.prefix):
             # await self.message_handler(message)
